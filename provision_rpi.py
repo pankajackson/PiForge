@@ -1,144 +1,117 @@
 import os
+import shutil
 import subprocess
 import sys
-import shutil
-
-download_dir = "./images"
-os.makedirs(download_dir, exist_ok=True)
-
-raspios_lite_img = os.path.join(download_dir, "raspios_lite_armhf_latest.img")
-raspios_lite_img_url = "https://downloads.raspberrypi.com/raspios_lite_armhf_latest"
-raspios_lite_img_xz = os.path.join(download_dir, "raspios_lite_armhf_latest.img.xz")
-root_partition_mount = "/tmp/pi_flash/root"
-post_boot_script = "./post-boot.sh"
-
-required_cmds = [
-    "wget",
-    "xz",
-    "lsblk",
-    "dd",
-    "grep",
-    "awk",
-    "cp",
-    "systemctl",
-    "sudo",
-    "mount",
-]
+from pathlib import Path
 
 
-def check_commands():
-    for cmd in required_cmds:
+def ensure_commands_available(commands):
+    for cmd in commands:
         if not shutil.which(cmd):
-            print(
+            sys.exit(
                 f"Error: Required command '{cmd}' is missing. Install it and try again."
             )
-            sys.exit(1)
 
 
-def run_command(command, check=True):
-    try:
-        subprocess.run(command, shell=True, check=check)
-    except subprocess.CalledProcessError as e:
-        print(f"Error executing command: {e}")
-        sys.exit(1)
+def download_image(download_dir):
+    img_path = download_dir / "raspios_lite_armhf_latest.img"
+    img_xz_path = download_dir / "raspios_lite_armhf_latest.img.xz"
+    img_url = "https://downloads.raspberrypi.com/raspios_lite_armhf_latest"
 
-
-def download_image():
-    if os.path.isfile(raspios_lite_img):
-        print(f"Using cached {raspios_lite_img}")
-        return
+    if img_path.exists():
+        print(f"Using cached {img_path}")
+        return img_path
 
     print("Downloading Raspberry Pi OS Lite...")
-    run_command(f"wget -O {raspios_lite_img_xz} {raspios_lite_img_url}")
+    subprocess.run(["wget", "-O", str(img_xz_path), img_url], check=True)
 
     print("Decompressing the image...")
-    run_command(f"xz -d {raspios_lite_img_xz}")
+    subprocess.run(["xz", "-d", str(img_xz_path)], check=True)
+    print(f"Download and decompression complete: {img_path}")
 
-    os.remove(raspios_lite_img_xz)
-    print(f"Download and decompression complete: {raspios_lite_img}")
+    return img_path
+
+
+def list_removable_devices():
+    devices = []
+    try:
+        result = subprocess.run(
+            ["lsblk", "-dpno", "NAME,TRAN"], capture_output=True, text=True, check=True
+        )
+        for line in result.stdout.strip().split("\n"):
+            parts = line.split()
+            if len(parts) == 2 and parts[1] == "usb":
+                devices.append(parts[0])
+    except subprocess.CalledProcessError:
+        sys.exit("Error: Failed to retrieve storage device information.")
+
+    return devices
 
 
 def select_device():
-    print("Detecting removable storage devices...")
-    result = subprocess.run(
-        "lsblk -dpno NAME,TRAN | awk '$2 == \"usb\" {print $1}'",
-        shell=True,
-        capture_output=True,
-        text=True,
-    )
-    devices = result.stdout.strip().split("\n")
-
-    if not devices or devices == [""]:
-        print("No removable storage devices found!")
-        sys.exit(1)
+    devices = list_removable_devices()
+    if not devices:
+        sys.exit("No removable storage devices found!")
 
     print("Available devices:")
-    for i, dev in enumerate(devices, 1):
-        print(f"{i}. {dev}")
+    for idx, device in enumerate(devices, start=1):
+        print(f"{idx}. {device}")
 
     while True:
-        choice = input("Select a device by number: ")
+        choice = input("Select a device: ")
         if choice.isdigit() and 1 <= int(choice) <= len(devices):
             return devices[int(choice) - 1]
         print("Invalid selection. Try again.")
 
 
-def flash_device(flash_device):
-    confirm = (
-        input(f"WARNING: This will erase all data on {flash_device}. Proceed? (y/N): ")
-        .strip()
-        .lower()
-    )
-    if confirm != "y":
-        print("Operation cancelled.")
-        sys.exit(1)
+def flash_device(img_path, device):
+    confirm = input(f"WARNING: This will erase all data on {device}. Proceed? (y/N): ")
+    if confirm.lower() != "y":
+        sys.exit("Operation cancelled.")
 
-    print(f"Unmounting partitions on {flash_device}...")
-    run_command(f"sudo umount {flash_device}*", check=False)
-
-    print(f"Flashing {raspios_lite_img} to {flash_device}...")
-    run_command(
-        f"sudo dd if={raspios_lite_img} of={flash_device} bs=4M status=progress conv=fsync"
-    )
-    run_command("sync")
+    print(f"Flashing {img_path} to {device}...")
+    with open(img_path, "rb") as img, open(device, "wb") as dev:
+        shutil.copyfileobj(img, dev, length=4 * 1024 * 1024)
     print("Installation complete! You can now eject the microSD card.")
 
 
-def setup_post_boot_script(flash_device):
-    print("Copying post-boot.sh script to the root partition...")
-    if not os.path.isfile(post_boot_script):
-        print(f"Error: {post_boot_script} not found.")
-        sys.exit(1)
+def setup_post_boot_script(device):
+    root_mount = Path("/tmp/pi_flash/root")
+    post_boot_script = Path("./post-boot.sh")
+    systemd_service = Path("./postboot.service")
 
-    os.makedirs(root_partition_mount, exist_ok=True)
-    run_command(f"sudo mount {flash_device}2 {root_partition_mount}")
+    if not post_boot_script.exists():
+        sys.exit(f"Error: {post_boot_script} not found.")
 
-    run_command(f"sudo cp {post_boot_script} {root_partition_mount}/post-boot.sh")
-    run_command(f"sudo chmod +x {root_partition_mount}/post-boot.sh")
+    root_mount.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["sudo", "mount", f"{device}2", str(root_mount)], check=True)
+    shutil.copy(post_boot_script, root_mount / "post-boot.sh")
+    (root_mount / "post-boot.sh").chmod(0o755)
 
-    print("Post-boot script copied successfully!")
+    if not systemd_service.exists():
+        sys.exit(f"Error: {systemd_service} not found.")
 
-    if not os.path.isfile("./postboot.service"):
-        print("Error: postboot.service not found.")
-        sys.exit(1)
-
-    run_command(
-        f"sudo cp ./postboot.service {root_partition_mount}/etc/systemd/system/postboot.service"
+    shutil.copy(systemd_service, root_mount / "etc/systemd/system/postboot.service")
+    os.symlink(
+        "/etc/systemd/system/postboot.service",
+        root_mount / "etc/systemd/system/multi-user.target.wants/postboot.service",
     )
-    run_command(
-        f"sudo ln -s /etc/systemd/system/postboot.service {root_partition_mount}/etc/systemd/system/multi-user.target.wants/postboot.service"
-    )
-
-    run_command(f"sudo umount {root_partition_mount}")
-    print("Systemd service created and enabled.")
+    subprocess.run(["sudo", "umount", str(root_mount)], check=True)
+    print("Post-boot script and systemd service setup complete.")
 
 
-if __name__ == "__main__":
-    check_commands()
-    download_image()
+def main():
+    ensure_commands_available(["wget", "xz", "dd", "mount", "umount"])
+    download_dir = Path("./images")
+    download_dir.mkdir(exist_ok=True)
+    img_path = download_image(download_dir)
     device = select_device()
-    flash_device(device)
+    flash_device(img_path, device)
     setup_post_boot_script(device)
     print(
         "Provisioning complete! Raspberry Pi is ready. Insert the SD card and boot up."
     )
+
+
+if __name__ == "__main__":
+    main()

@@ -171,9 +171,15 @@ def select_image(
     else:
         # Arch Linux ARM URL structure (assuming AArch64 for Raspberry Pi 4/5)
         if img_arch == ImageArch.ARM64:
-            img_url = "https://archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz"
+            # FIXME: replace with secure URL
+            img_url = (
+                "http://os.archlinuxarm.org/os/ArchLinuxARM-rpi-aarch64-latest.tar.gz"
+            )
         else:
-            img_url = "https://archlinuxarm.org/os/ArchLinuxARM-rpi-latest.tar.gz"
+            # FIXME: replace with secure URL
+            img_url = (
+                "http://os.archlinuxarm.org/os/ArchLinuxARM-rpi-armv7-latest.tar.gz"
+            )
 
     return Image(
         flavor=os_flavor,
@@ -306,10 +312,14 @@ def flash_device(img_path: Path, device: str, os_flavor: OSFlavor) -> None:
 
         # Mount partitions and extract image
         boot_dir, root_dir = mount_device(device)
-        subprocess.run(["tar", "-xzf", str(img_path), "-C", str(root_dir)], check=True)
+        subprocess.run(
+            ["bsdtar", "-xpf", str(img_path), "-C", str(root_dir)], check=True
+        )
 
         # Copy boot files
-        shutil.copytree(root_dir / "boot", boot_dir, dirs_exist_ok=True)
+        src_dir = Path(root_dir) / "boot"
+        for item in src_dir.iterdir():  # Iterate over files and directories
+            shutil.move(str(item), str(boot_dir))  # Move each file/dir separately
 
         # Unmount the device
         unmount_device(device)
@@ -346,7 +356,9 @@ def setup_post_flash_actions(device: str) -> None:
 
 
 def main() -> None:
-    ensure_commands_available(["wget", "xz", "dd", "mount", "umount", "tar", "parted"])
+    ensure_commands_available(
+        ["wget", "xz", "dd", "mount", "umount", "bsdtar", "sgdisk"]
+    )
 
     download_dir = Path("./images")
     download_dir.mkdir(exist_ok=True)

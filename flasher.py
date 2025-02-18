@@ -181,8 +181,8 @@ def flash_device(img_path: Path, device: str) -> None:
 
 def setup_post_boot_script(device: str) -> None:
     root_mount = Path("/tmp/pi_flash/root")
-    post_boot_script = Path("./post-boot.sh")
-    systemd_service = Path("./postboot.service")
+    post_boot_script = Path("resources/post-boot.sh")
+    systemd_service = Path("resources/postboot.service")
 
     if not post_boot_script.exists():
         sys.exit(f"Error: {post_boot_script} not found.")

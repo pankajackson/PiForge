@@ -1,0 +1,11 @@
+[Unit]
+Description=Post Boot Setup Script
+After=multi-user.target
+
+[Service]
+ExecStart=/bin/bash /post-boot.sh
+Restart=on-failure
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target

@@ -8,9 +8,11 @@ mkdir -p "$download_dir"
 raspios_lite_img="$download_dir/raspios_lite_armhf_latest.img"
 raspios_lite_img_url="https://downloads.raspberrypi.com/raspios_lite_armhf_latest"
 raspios_lite_img_xz="$download_dir/raspios_lite_armhf_latest.img.xz"
+root_partition_mount="/tmp/pi_flash/root"
+post_boot_script="./post-boot.sh"
 
 # Ensure required commands are available
-for cmd in wget xz lsblk dd grep awk; do
+for cmd in wget xz lsblk dd grep awk cp systemctl sudo mount; do
     if ! command -v "$cmd" &>/dev/null; then
         echo "Error: Required command '$cmd' is missing. Install it and try again."
         exit 1
@@ -78,7 +80,10 @@ flash_device() {
 
     # Stream decompression directly into dd to avoid unnecessary disk writes
     if [[ -f "$raspios_lite_img_xz" ]]; then
-        xzcat "$raspios_lite_img_xz" | sudo dd of="$flash_device" bs=4M status=progress conv=fsync
+        if ! xzcat "$raspios_lite_img_xz" | sudo dd of="$flash_device" bs=4M status=progress conv=fsync; then
+            echo "Error during image flashing."
+            exit 1
+        fi
     else
         sudo dd if="$raspios_lite_img" of="$flash_device" bs=4M status=progress conv=fsync
     fi
@@ -87,7 +92,51 @@ flash_device() {
     echo "Installation complete! You can now eject the microSD card."
 }
 
+# Function to copy post-boot script and systemd unit file
+setup_post_boot_script() {
+    echo "Copying post-boot.sh script to the root partition..."
+
+    if [ ! -f "$post_boot_script" ]; then
+        echo "Error: $post_boot_script not found."
+        exit 1
+    fi
+
+    # Mount the root partition of the flashed device
+    mkdir -p "$root_partition_mount"
+    sudo mount "${flash_device}2" "$root_partition_mount"
+
+    # Copy the post-boot.sh script to the root partition
+    sudo cp "$post_boot_script" "$root_partition_mount/post-boot.sh"
+
+    # Make the script executable
+    sudo chmod +x "$root_partition_mount/post-boot.sh"
+
+    echo "Post-boot script copied successfully!"
+
+    # Check if the systemd service unit file exists
+    if [ ! -f "./postboot.service" ]; then
+        echo "Error: postboot.service not found."
+        exit 1
+    fi
+
+    # Copy the systemd service file to the root partition
+    sudo cp ./postboot.service "$root_partition_mount/etc/systemd/system/postboot.service"
+
+    # Enable the systemd service by creating a symlink
+    sudo ln -s "/etc/systemd/system/postboot.service" "$root_partition_mount/etc/systemd/system/multi-user.target.wants/postboot.service"
+
+    # Unmount the root partition
+    sudo umount "$root_partition_mount"
+
+    echo "Systemd service created and enabled."
+}
+
 # Main script execution
 download_image
 select_device
 flash_device
+
+# setup post boot script
+setup_post_boot_script
+
+echo "Provisioning complete! Raspberry Pi is ready. Insert the SD card and boot up."

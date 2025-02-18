@@ -3,7 +3,7 @@
 set -e
 
 # Set up user and password
-USER_NAME="pi"
+USER_NAME="lxa"
 USER_PASS="123"
 sudo useradd -m -s /bin/bash "$USER_NAME" || echo "User $USER_NAME already exists."
 echo "$USER_NAME:$USER_PASS" | sudo chpasswd

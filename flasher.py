@@ -45,7 +45,7 @@ def is_device_mounted(device: str) -> bool:
 def unmount_device(device: str, retry_count=3) -> bool:
     """Unmount the device safely if it is mounted."""
     if not is_device_mounted(device):
-        print(f"{device} is not mounted. Skipping unmount.")
+        # print(f"{device} is not mounted. Skipping unmount.")
         return True  # No need to unmount
 
     for attempt in range(retry_count):
@@ -179,11 +179,12 @@ def flash_device(img_path: Path, device: str) -> None:
     print("Installation complete!")
 
 
-def setup_post_boot_script(device: str) -> None:
+def setup_post_flash_actions(device: str) -> None:
     root_mount = Path("/tmp/pi_flash/root")
     post_boot_script = Path("resources/post-boot.sh")
     systemd_service = Path("resources/postboot.service")
 
+    # Setup postboot script
     if not post_boot_script.exists():
         sys.exit(f"Error: {post_boot_script} not found.")
 
@@ -192,6 +193,7 @@ def setup_post_boot_script(device: str) -> None:
     shutil.copy(post_boot_script, root_mount / "post-boot.sh")
     (root_mount / "post-boot.sh").chmod(0o755)
 
+    # Setup systemd service
     if not systemd_service.exists():
         sys.exit(f"Error: {systemd_service} not found.")
 
@@ -212,7 +214,7 @@ def main() -> None:
     device = select_device()
     img_path = download_image(image, download_dir)
     flash_device(img_path, device)
-    setup_post_boot_script(device)
+    setup_post_flash_actions(device)
     print(
         "Provisioning complete! Raspberry Pi is ready. Insert the SD card and boot up."
     )

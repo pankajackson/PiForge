@@ -173,3 +173,4 @@ cython_debug/
 # Custom
 images/
 dev/
+.st*

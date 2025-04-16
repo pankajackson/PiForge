@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # Define static IP settings
+ETH_IFACE=$(nmcli device status | awk '$2 == "ethernet" {print $1; exit}')
+WLAN_IFACE=$(nmcli device status | awk '$2 == "wifi" {print $1; exit}')
 ETH0_IPS="192.168.1.2/24,10.0.0.2/24"
 WLAN0_IPS="192.168.1.3/24,10.0.0.3/24"
 GATEWAY="192.168.1.1"
@@ -8,6 +10,7 @@ ETH0_DNS="192.168.1.2,8.8.8.8"
 WLAN0_DNS="192.168.1.3,8.8.8.8"
 WIFI_SSID="${WIFI_SSID:-JACKSON_PRIVATE_NETWORK_5}"
 WIFI_PASSWORD="${WIFI_PASSWORD:-123-QWE-,./}"
+WIFI_COUNTRY="${WIFI_COUNTRY:-IN}"
 
 # Check if NetworkManager is installed
 if ! command -v nmcli &>/dev/null; then
@@ -24,6 +27,14 @@ if command -v rfkill &>/dev/null; then
     fi
 else
     echo "Warning: rfkill not found. Cannot check for Wi-Fi soft block."
+fi
+
+# Set Wi-Fi country (regulatory domain)
+if command -v iw &>/dev/null; then
+    echo "Setting Wi-Fi country to $WIFI_COUNTRY..."
+    iw reg set "$WIFI_COUNTRY"
+else
+    echo "Warning: 'iw' not found, cannot set Wi-Fi country code."
 fi
 
 # Function to remove unwanted connections
@@ -57,7 +68,7 @@ configure_network() {
         nmcli con modify "$con_name" ipv4.method manual
     else
         echo "Creating new connection: $con_name"
-        if [[ "$iface" == "wlan0" ]]; then
+        if [[ "$iface" == "$WLAN_IFACE" ]]; then
             nmcli con add type wifi ifname "$iface" con-name "$con_name" ssid "$ssid" ipv4.method manual \
                 ipv4.addresses "$ip" \
                 ipv4.gateway "$GATEWAY" \
@@ -83,15 +94,15 @@ configure_network() {
 cleanup_networks
 
 # Configure Ethernet (eth0)
-configure_network "eth0" "static-eth0" "$ETH0_IPS" "$ETH0_DNS"
+configure_network "$ETH_IFACE" "static-eth0" "$ETH0_IPS" "$ETH0_DNS"
 
 # Configure Wi-Fi (wlan0)
-configure_network "wlan0" "static-wlan" "$WLAN0_IPS" "$WLAN0_DNS" "$WIFI_SSID" "$WIFI_PASSWORD"
+# configure_network "$WLAN_IFACE" "static-wlan" "$WLAN0_IPS" "$WLAN0_DNS" "$WIFI_SSID" "$WIFI_PASSWORD"
 
 # Restart connections
 echo "Restarting network connections..."
 nmcli con up static-eth0
-nmcli con up static-wlan
+# nmcli con up static-wlan
 
 # Verify setup
 echo "Final Network Configuration:"

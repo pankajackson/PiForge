@@ -38,6 +38,32 @@ def ensure_commands_available(commands: list[str]) -> None:
             )
 
 
+def get_user():
+    # Use SUDO_USER if available; fallback to current user
+    real_user = os.environ.get("SUDO_USER") or os.getlogin()
+    home_dir = Path(f"/home/{real_user}") if real_user != "root" else Path.home()
+    ssh_dir = home_dir / ".ssh"
+    ssh_pub_key_path = ssh_dir / "id_rsa.pub"
+    ssh_pub_key = ""
+    if ssh_pub_key_path.exists():
+        ssh_pub_key = ssh_pub_key_path.read_text().strip()
+    return real_user, home_dir, ssh_dir, ssh_pub_key
+
+
+def ensure_symlink(source, target):
+    if target.exists() or target.is_symlink():
+        if target.is_symlink():
+            # If it's already the correct symlink, do nothing
+            if os.readlink(target) == source:
+                return
+            else:
+                target.unlink()  # Remove wrong symlink
+        else:
+            raise FileExistsError(f"{target} already exists and is not a symlink")
+
+    os.symlink(source, target)
+
+
 def is_device_mounted(device: str) -> bool:
     """Check if a device is mounted."""
     result = subprocess.run(["mount"], capture_output=True, text=True)
@@ -216,6 +242,7 @@ def setup_post_flash_actions(device: str) -> None:
     root_mount = Path("/tmp/pi_flash/root")
     scripts_src = Path("resources/scripts")
     systemd_service_src = Path("resources/services/postboot.service")
+    username, home, user_ssh_dir, ssh_pub_key = get_user()
 
     # Ensure required files exist
     if not scripts_src.exists():
@@ -246,9 +273,54 @@ def setup_post_flash_actions(device: str) -> None:
 
     # 3. Disable Pi first-boot wizard by creating userconf in /boot
     userconf_path = boot_mount / "userconf"
-    userconf_content = generate_userconf("jackson", "raspberry")
+    userconf_content = generate_userconf(username, "123")
     userconf_path.write_text(userconf_content)
     print("✅ userconf file created to skip Pi first-boot setup wizard.")
+
+    # 4. Enable ssh
+    (boot_mount / "ssh").touch()
+    print("✅ ssh file created to enable ssh.")
+
+    # 5. Enable passwordless ssh access
+    # Get your current user's home directory
+    pubkey_files = ["id_rsa.pub", "id_ed25519.pub", "id_ecdsa.pub", "id_dsa.pub"]
+
+    public_key = None
+    for key_file in pubkey_files:
+        key_path = user_ssh_dir / key_file
+        if key_path.exists():
+            public_key = key_path.read_text().strip()
+            print(f"Using SSH key: {key_file}")
+            break
+
+    if public_key is None:
+        raise FileNotFoundError("No public SSH key found in ~/.ssh")
+
+    # Write the key into the Pi's image
+    ssh_dir = root_mount / "home" / username / ".ssh"
+    ssh_dir.mkdir(parents=True, exist_ok=True)
+
+    authorized_keys = ssh_dir / "authorized_keys"
+    authorized_keys.write_text(public_key + "\n")
+
+    authorized_keys.chmod(0o600)
+    ssh_dir.chmod(0o700)
+    subprocess.run(["chown", "-R", f"{username}:{username}", str(ssh_dir)], check=True)
+    print("✅ SSH key written to image.")
+
+    # 6. Setup Wifi
+    wpa_supplicant = boot_mount / "wpa_supplicant.conf"
+    WIFI_SSID = "JACKSON_PRIVATE_NETWORK"
+    WIFI_PASSWORD = "secret_pass"
+    wpa_supplicant.write_text(f"""country=IN
+    ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+    update_config=1
+
+    network={{
+        ssid="{WIFI_SSID}"
+        psk="{WIFI_PASSWORD}"
+    }}
+    """)
 
     # Ensure directories exist
     systemd_dir.mkdir(parents=True, exist_ok=True)
@@ -259,7 +331,7 @@ def setup_post_flash_actions(device: str) -> None:
 
     # Symlink it to enable the service
     if not symlink_target.exists():
-        os.symlink("/etc/systemd/system/postboot.service", symlink_target)
+        ensure_symlink("/etc/systemd/system/postboot.service", symlink_target)
 
     # Unmount and done
     unmount_device(device)
@@ -267,7 +339,7 @@ def setup_post_flash_actions(device: str) -> None:
 
 
 def main() -> None:
-    ensure_commands_available(["wget", "xz", "dd", "mount", "umount", "rpi-imager"])
+    ensure_commands_available(["wget", "xz", "dd", "mount", "umount"])
     download_dir = Path("./images")
     download_dir.mkdir(exist_ok=True)
     image = select_image()

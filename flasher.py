@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import shutil
 import subprocess
@@ -74,6 +76,26 @@ def unmount_device(device: str, retry_count=3) -> bool:
 
     print(f"Error: Failed to unmount {device} after {retry_count} attempts. Exiting.")
     sys.exit(1)  # Exit after all retries fail
+
+
+def mount_device(device: str, mount_point: str, retry_count: int = 3) -> bool:
+    for attempt in range(1, retry_count + 1):
+        try:
+            if is_device_mounted(device):
+                print(f"{device} is already mounted.")
+                return True
+
+            subprocess.run(["sudo", "mount", device, mount_point], check=True)
+            print(f"Mounted {device} to {mount_point}.")
+            return True
+
+        except subprocess.CalledProcessError:
+            print(
+                f"Attempt {attempt}/{retry_count} failed to mount {device}. Retrying..."
+            )
+
+    print(f"Error: Failed to mount {device} after {retry_count} attempts.")
+    return False
 
 
 def select_image(
@@ -180,34 +202,56 @@ def flash_device(img_path: Path, device: str) -> None:
 
 
 def setup_post_flash_actions(device: str) -> None:
+    boot_mount = Path("/tmp/pi_flash/boot")
     root_mount = Path("/tmp/pi_flash/root")
-    post_boot_script = Path("resources/post-boot.sh")
-    systemd_service = Path("resources/postboot.service")
+    scripts_src = Path("resources/scripts")
+    systemd_service_src = Path("resources/services/postboot.service")
 
-    # Setup postboot script
-    if not post_boot_script.exists():
-        sys.exit(f"Error: {post_boot_script} not found.")
+    # Ensure required files exist
+    if not scripts_src.exists():
+        sys.exit(f"Error: {scripts_src} not found.")
+    if not systemd_service_src.exists():
+        sys.exit(f"Error: {systemd_service_src} not found.")
 
+    # Mount partitions of the Raspberry Pi
+    boot_mount.mkdir(parents=True, exist_ok=True)
     root_mount.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["sudo", "mount", f"{device}2", str(root_mount)], check=True)
-    shutil.copy(post_boot_script, root_mount / "post-boot.sh")
-    (root_mount / "post-boot.sh").chmod(0o755)
+    mount_device(f"{device}1", str(boot_mount))
+    mount_device(f"{device}2", str(root_mount))
 
-    # Setup systemd service
-    if not systemd_service.exists():
-        sys.exit(f"Error: {systemd_service} not found.")
+    # 1. Copy post-boot scripts
+    scripts_dest = root_mount / "post-boot"
+    shutil.copytree(scripts_src, scripts_dest, dirs_exist_ok=True)
 
-    shutil.copy(systemd_service, root_mount / "etc/systemd/system/postboot.service")
-    os.symlink(
-        "/etc/systemd/system/postboot.service",
-        root_mount / "etc/systemd/system/multi-user.target.wants/postboot.service",
-    )
+    # Make all scripts executable
+    for root, dirs, files in os.walk(scripts_dest):
+        for file in files:
+            (Path(root) / file).chmod(0o755)
+
+    # 2. Setup systemd service
+    systemd_dir = root_mount / "etc/systemd/system"
+    wants_dir = systemd_dir / "multi-user.target.wants"
+    service_target = systemd_dir / "postboot.service"
+    symlink_target = wants_dir / "postboot.service"
+
+    # Ensure directories exist
+    systemd_dir.mkdir(parents=True, exist_ok=True)
+    wants_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy the service file
+    shutil.copy(systemd_service_src, service_target)
+
+    # Symlink it to enable the service
+    if not symlink_target.exists():
+        os.symlink("/etc/systemd/system/postboot.service", symlink_target)
+
+    # Unmount and done
     unmount_device(device)
-    print("Post-boot script and systemd service setup complete.")
+    print("✅ post-boot scripts and systemd service installed successfully.")
 
 
 def main() -> None:
-    ensure_commands_available(["wget", "xz", "dd", "mount", "umount"])
+    ensure_commands_available(["wget", "xz", "dd", "mount", "umount", "rpi-imager"])
     download_dir = Path("./images")
     download_dir.mkdir(exist_ok=True)
     image = select_image()

@@ -15,6 +15,17 @@ if ! command -v nmcli &>/dev/null; then
     exit 1
 fi
 
+# Unblock Wi-Fi if soft-blocked
+if command -v rfkill &>/dev/null; then
+    if rfkill list wifi | grep -q "Soft blocked: yes"; then
+        echo "Wi-Fi is soft blocked. Unblocking..."
+        rfkill unblock wifi
+        sleep 2
+    fi
+else
+    echo "Warning: rfkill not found. Cannot check for Wi-Fi soft block."
+fi
+
 # Function to remove unwanted connections
 cleanup_networks() {
     echo "Removing unnecessary NetworkManager connections (excluding bridges and static configurations)..."

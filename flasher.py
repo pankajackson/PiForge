@@ -201,6 +201,16 @@ def flash_device(img_path: Path, device: str) -> None:
     print("Installation complete!")
 
 
+def generate_userconf(username: str, password: str) -> str:
+    result = subprocess.run(
+        ["openssl", "passwd", "-6", password],
+        stdout=subprocess.PIPE,
+        text=True,
+        check=True,
+    )
+    return f"{username}:{result.stdout.strip()}"
+
+
 def setup_post_flash_actions(device: str) -> None:
     boot_mount = Path("/tmp/pi_flash/boot")
     root_mount = Path("/tmp/pi_flash/root")
@@ -233,6 +243,12 @@ def setup_post_flash_actions(device: str) -> None:
     wants_dir = systemd_dir / "multi-user.target.wants"
     service_target = systemd_dir / "postboot.service"
     symlink_target = wants_dir / "postboot.service"
+
+    # 3. Disable Pi first-boot wizard by creating userconf in /boot
+    userconf_path = boot_mount / "userconf"
+    userconf_content = generate_userconf("jackson", "raspberry")
+    userconf_path.write_text(userconf_content)
+    print("✅ userconf file created to skip Pi first-boot setup wizard.")
 
     # Ensure directories exist
     systemd_dir.mkdir(parents=True, exist_ok=True)

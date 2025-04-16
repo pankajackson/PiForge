@@ -30,7 +30,7 @@ cd raspberry-pi-home-automation-flash
 2. Make the script executable:
 
 ```bash
-chmod +x provision_rpi.sh
+chmod +x flasher.py
 ```
 
 ---
@@ -42,7 +42,7 @@ chmod +x provision_rpi.sh
 Execute the script to flash the Raspberry Pi OS Lite image to your device.
 
 ```bash
-./provision_rpi.sh
+sudo python flasher.py
 ```
 
 ### Step 2: Follow the Interactive Prompts
@@ -53,6 +53,14 @@ Execute the script to flash the Raspberry Pi OS Lite image to your device.
 - **Step 4:** The script will then **unmount** any existing partitions on the device and **flash** the OS image to the selected device.
 
 > **WARNING:** This process will erase all data on the selected device!
+
+### Step 3: Check progress (Optional)
+
+```bash
+watch iostat -h -p sda -d
+```
+
+> **NOTE:** here `sda` is the device name.
 
 ---
 

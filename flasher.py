@@ -319,6 +319,7 @@ def setup_post_flash_actions(device: str) -> None:
     network={{
         ssid="{WIFI_SSID}"
         psk="{WIFI_PASSWORD}"
+        key_mgmt=WPA-PSK
     }}
     """)
 

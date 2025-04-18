@@ -3,13 +3,13 @@
 # Define static IP settings
 ETH_IFACE=$(nmcli device status | awk '$2 == "ethernet" {print $1; exit}')
 WLAN_IFACE=$(nmcli device status | awk '$2 == "wifi" {print $1; exit}')
-ETH0_IPS="192.168.1.2/24,10.0.0.2/24"
-WLAN0_IPS="192.168.1.3/24,10.0.0.3/24"
-GATEWAY="192.168.1.1"
-ETH0_DNS="192.168.1.2,8.8.8.8"
-WLAN0_DNS="192.168.1.3,8.8.8.8"
-WIFI_SSID="${WIFI_SSID:-JACKSON_PRIVATE_NETWORK_5}"
-WIFI_PASSWORD="${WIFI_PASSWORD:-123-QWE-,./}"
+ETH0_IPS="192.168.1.20/24"
+WLAN0_IPS="192.168.1.30/24"
+GATEWAY="192.168.1.10"
+ETH0_DNS="192.168.1.20,8.8.8.8"
+WLAN0_DNS="192.168.1.30,8.8.8.8"
+WIFI_SSID="${WIFI_SSID:-MY_SSID}"
+WIFI_PASSWORD="${WIFI_PASSWORD:-MY_PASSWORD}"
 WIFI_COUNTRY="${WIFI_COUNTRY:-IN}"
 
 # Check if NetworkManager is installed

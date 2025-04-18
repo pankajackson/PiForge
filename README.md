@@ -45,6 +45,12 @@ Execute the script to flash the Raspberry Pi OS Lite image to your device.
 sudo python flasher.py
 ```
 
+OR if using a virtual environment
+
+```bash
+sudo env "PATH=$PATH" "$(which python)" flasher.py
+```
+
 ### Step 2: Follow the Interactive Prompts
 
 - **Step 1:** The script will first check if the required image (`raspios_lite_armhf_latest.img`) is already downloaded.

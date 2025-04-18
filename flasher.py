@@ -104,7 +104,8 @@ def unmount_device(device: str, retry_count=3) -> bool:
     sys.exit(1)  # Exit after all retries fail
 
 
-def mount_device(device: str, mount_point: str, retry_count: int = 3) -> bool:
+def mount_device(device: str, mount_point: Path, retry_count: int = 3) -> bool:
+    mount_point.mkdir(parents=True, exist_ok=True)
     for attempt in range(1, retry_count + 1):
         try:
             if is_device_mounted(device):
@@ -237,6 +238,15 @@ def generate_userconf(username: str, password: str) -> str:
     return f"{username}:{result.stdout.strip()}"
 
 
+def setup_first_boot_actions(device: str) -> None:
+    boot_mount = Path("/tmp/pi_flash/boot")
+    mount_device(f"{device}1", boot_mount)
+    first_run_src = Path("resources/firstrun")
+    shutil.copytree(first_run_src, boot_mount, dirs_exist_ok=True)
+    unmount_device(device)
+    print("✅ First boot actions complete!")
+
+
 def setup_post_flash_actions(device: str) -> None:
     boot_mount = Path("/tmp/pi_flash/boot")
     root_mount = Path("/tmp/pi_flash/root")
@@ -251,10 +261,8 @@ def setup_post_flash_actions(device: str) -> None:
         sys.exit(f"Error: {systemd_service_src} not found.")
 
     # Mount partitions of the Raspberry Pi
-    boot_mount.mkdir(parents=True, exist_ok=True)
-    root_mount.mkdir(parents=True, exist_ok=True)
-    mount_device(f"{device}1", str(boot_mount))
-    mount_device(f"{device}2", str(root_mount))
+    mount_device(f"{device}1", boot_mount)
+    mount_device(f"{device}2", root_mount)
 
     # 1. Copy post-boot scripts
     scripts_dest = root_mount / "post-boot"
@@ -313,15 +321,16 @@ def setup_post_flash_actions(device: str) -> None:
     WIFI_SSID = "JACKSON_PRIVATE_NETWORK"
     WIFI_PASSWORD = "secret_pass"
     wpa_supplicant.write_text(f"""country=IN
-    ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
-    update_config=1
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+ap_scan=1
 
-    network={{
-        ssid="{WIFI_SSID}"
-        psk="{WIFI_PASSWORD}"
-        key_mgmt=WPA-PSK
-    }}
+update_config=1
+network={{
+	ssid="{WIFI_SSID}"
+	psk={WIFI_PASSWORD}
+}}
     """)
+    wpa_supplicant.chmod(0o600)
 
     # Ensure directories exist
     systemd_dir.mkdir(parents=True, exist_ok=True)
@@ -347,7 +356,8 @@ def main() -> None:
     device = select_device()
     img_path = download_image(image, download_dir)
     flash_device(img_path, device)
-    setup_post_flash_actions(device)
+    setup_first_boot_actions(device)
+    # setup_post_flash_actions(device)
     print(
         "Provisioning complete! Raspberry Pi is ready. Insert the SD card and boot up."
     )

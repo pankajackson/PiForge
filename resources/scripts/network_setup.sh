@@ -23,6 +23,9 @@ if command -v rfkill &>/dev/null; then
     if rfkill list wifi | grep -q "Soft blocked: yes"; then
         echo "Wi-Fi is soft blocked. Unblocking..."
         rfkill unblock wifi
+        for filename in /var/lib/systemd/rfkill/*:wlan; do
+            echo 0 >$filename
+        done
         sleep 2
     fi
 else
@@ -97,12 +100,12 @@ cleanup_networks
 configure_network "$ETH_IFACE" "static-eth0" "$ETH0_IPS" "$ETH0_DNS"
 
 # Configure Wi-Fi (wlan0)
-# configure_network "$WLAN_IFACE" "static-wlan" "$WLAN0_IPS" "$WLAN0_DNS" "$WIFI_SSID" "$WIFI_PASSWORD"
+configure_network "$WLAN_IFACE" "static-wlan" "$WLAN0_IPS" "$WLAN0_DNS" "$WIFI_SSID" "$WIFI_PASSWORD"
 
 # Restart connections
 echo "Restarting network connections..."
 nmcli con up static-eth0
-# nmcli con up static-wlan
+nmcli con up static-wlan
 
 # Verify setup
 echo "Final Network Configuration:"

@@ -2,14 +2,14 @@
 
 This repository provides an easy-to-use script to **download, flash, and provision a flash drive** with the latest **Raspberry Pi OS Lite** for setting up a Raspberry Pi 5, specifically for **home automation services**.
 
-### Features
+## Features
 
 - **Downloads** and **decompresses** the latest Raspberry Pi OS Lite image.
 - **Automatically detects** supported block devices (e.g., SD cards, USB drives, NVMe drives).
 - **Flashes the OS image** to the selected block device (e.g., microSD card or USB drive).
 - **Configures** the Raspberry Pi 5 for home automation tasks.
 
-### Requirements
+## Requirements
 
 - A **Raspberry Pi 5** device.
 - A **flash drive** or **microSD card** for the Raspberry Pi.

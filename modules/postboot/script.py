@@ -4,6 +4,9 @@ import shutil
 from pathlib import Path
 from utilities.users import get_user
 from utilities.system import ensure_symlink
+from jinja2 import Environment, FileSystemLoader
+
+current_dir = Path(os.path.dirname(os.path.abspath(__file__)))
 
 
 def get_service_path(root_mount: Path):
@@ -27,7 +30,39 @@ def get_service_path(root_mount: Path):
     )
 
 
-def install_script(root_mount: Path):
+def generate_variables_script(
+    hostname: str,
+    eth0_ips: str,
+    wlan0_ips: str,
+    eth0_dns: str,
+    wlan0_dns: str,
+    gateway: str,
+    wifi_country: str,
+    wifi_ssid: str,
+    wifi_psk_plain: str,
+    *args,
+    **kwargs,
+):
+    env = Environment(loader=FileSystemLoader(current_dir))
+    template = env.get_template("resources/templates/vars.sh.j2")
+
+    config = {
+        "hostname": hostname,
+        "eth0_ips": eth0_ips,
+        "wlan0_ips": wlan0_ips,
+        "eth0_dns": eth0_dns,
+        "wlan0_dns": wlan0_dns,
+        "gateway": gateway,
+        "wifi_country": wifi_country,
+        "wifi_ssid": wifi_ssid,
+        "wifi_psk_plain": wifi_psk_plain,
+    }
+
+    variables_script = template.render(config)
+    return variables_script
+
+
+def install_script(root_mount: Path, *args, **kwargs):
     (scripts_src, systemd_service_src, _, _, _, _) = get_service_path(root_mount)
     # Ensure required files exist
     if not scripts_src.exists():
@@ -39,18 +74,26 @@ def install_script(root_mount: Path):
     scripts_dest = root_mount / "post-boot"
     shutil.copytree(scripts_src, scripts_dest, dirs_exist_ok=True)
 
+    # 2. Generate variable script
+    script_file_name = "vars.sh"
+    output_script_path = scripts_dest / script_file_name
+    script = generate_variables_script(*args, **kwargs)
+    with open(output_script_path, "w") as f:
+        f.write(script)
+    output_script_path.chmod(0o755)
+
     # Make all scripts executable
     for root, dirs, files in os.walk(scripts_dest):
         for file in files:
             (Path(root) / file).chmod(0o755)
 
 
-def install_post_boot_service(root_mount: Path):
+def install_post_boot_service(root_mount: Path, *args, **kwargs):
     (_, systemd_service_src, systemd_dir, _, service_target, _) = get_service_path(
         root_mount
     )
 
-    install_script(root_mount)
+    install_script(root_mount, *args, **kwargs)
     systemd_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy(systemd_service_src, service_target)
 

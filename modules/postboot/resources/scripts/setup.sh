@@ -19,9 +19,10 @@ python3 -m http.server "$PORT" --directory "$LOG_DIR" &
 SERVER_PID=$!
 sleep 1
 
+bash "$BASEDIR/vars.sh"
 bash "$BASEDIR/system_setup.sh"
 bash "$BASEDIR/network_setup.sh"
-# bash "$BASEDIR/user_setup.sh"
+# bash "$BASEDIR/user_setup.sh" # Managed by first run script
 
 # Wait for internet before continuing
 HOST="8.8.8.8"
@@ -32,7 +33,7 @@ while ! ping -c 1 -W 1 "$HOST" &>/dev/null; do
     sleep "$WAIT_TIME"
 done
 
-# bash "$BASEDIR/sshd_setup.sh"
+# bash "$BASEDIR/sshd_setup.sh" # Managed by first run script
 bash "$BASEDIR/packages_setup.sh"
 
 # Disable once the service ran successfully

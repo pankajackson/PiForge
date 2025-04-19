@@ -2,5 +2,7 @@
 
 set -e
 
+HOST_NAME="${HOST_NAME:-pi.lxa.com}"
+
 # Set up hostname
-sudo hostnamectl set-hostname "pi02.lxa.com"
+sudo hostnamectl set-hostname "$HOST_NAME"

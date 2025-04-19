@@ -15,9 +15,11 @@ def generate_firstrun_script(
     wifi_ssid: str,
     wifi_psk: str,
     timezone: str,
+    *args,
+    **kwargs,
 ):
     env = Environment(loader=FileSystemLoader(current_dir))
-    template = env.get_template("firstrun.sh.j2")
+    template = env.get_template("resources/templates/firstrun.sh.j2")
 
     config = {
         "hostname": hostname,
@@ -42,6 +44,8 @@ def setup_firstrun(script: str, script_dir: Path) -> None:
     with open(output_script_path, "w") as f:
         f.write(script)
     output_script_path.chmod(0o755)
-    shutil.copyfile(current_dir / "cmdline.txt", script_dir / "cmdline.txt")
+    shutil.copyfile(
+        current_dir / "resources" / "assets" / "cmdline.txt", script_dir / "cmdline.txt"
+    )
 
     print("✅ First boot actions complete!")

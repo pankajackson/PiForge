@@ -1,38 +1,133 @@
-cat <<'EOF'> /var/log/logview.html
-  <!DOCTYPE html>
-  <html>
+<!DOCTYPE html>
+<html lang="en">
 
-  <head>
-    <meta charset="utf-8">
-    <title>Postboot Log Viewer</title>
-    <style>
-      body {
-        background: #111;
-        color: #eee;
-        font-family: monospace;
-        padding: 1em;
-      }
+<head>
+  <meta charset="UTF-8">
+  <title>Postboot Log Viewer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-      pre {
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-    </style>
-  </head>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background-color: #111;
+      color: #eee;
+      font-family: monospace;
+      overflow: hidden;
+    }
 
-  <body>
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5em 1em;
+      background-color: #1a1a1a;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+    }
+
+    #header h2 {
+      font-size: 1.5em;
+      margin: 0;
+      color: #0f0;
+    }
+
+    #controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      font-size: 0.9em;
+    }
+
+    #controls label {
+      display: flex;
+      align-items: center;
+      gap: 0.3em;
+    }
+
+    #log-container {
+      flex: 1;
+      overflow-y: auto;
+      background: #222;
+      padding: 1em 2em;
+      white-space: pre-wrap;
+      word-break: break-word;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="header">
     <h2>Postboot Log</h2>
-    <pre id="log">Loading log...</pre>
-    <script>
-      async function loadLog() {
-        const res = await fetch('postboot.txt?ts=' + new Date().getTime());
-        const log = await res.text();
-        document.getElementById('log').textContent = log;
-      }
-      setInterval(loadLog, 2000); // Refresh every 2 seconds
-      loadLog();
-    </script>
-  </body>
+    <div id="controls">
+      <label>
+        <input type="checkbox" id="auto-refresh-toggle" checked>
+        Auto-refresh
+      </label>
+      <label for="refresh-interval">Interval:</label>
+      <select id="refresh-interval">
+        <option value="1">1s</option>
+        <option value="2" selected>2s</option>
+        <option value="5">5s</option>
+        <option value="10">10s</option>
+        <option value="30">30s</option>
+      </select>
+    </div>
+  </div>
 
-  </html>
-  EOF
+  <div id="log-container">Loading log...</div>
+
+  <script>
+    const logEl = document.getElementById('log-container');
+    const toggleEl = document.getElementById('auto-refresh-toggle');
+    const intervalEl = document.getElementById('refresh-interval');
+
+    let intervalId = null;
+
+    async function loadLog() {
+      try {
+        const res = await fetch('postboot.txt?ts=' + Date.now());
+        const text = await res.text();
+
+        const isAtBottom = logEl.scrollHeight - logEl.scrollTop <= logEl.clientHeight + 10;
+        logEl.textContent = text;
+
+        if (isAtBottom) {
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+      } catch (e) {
+        console.error("Failed to load log:", e);
+      }
+    }
+
+    function startAutoRefresh() {
+      clearInterval(intervalId);
+      if (toggleEl.checked) {
+        const seconds = parseInt(intervalEl.value);
+        intervalId = setInterval(loadLog, seconds * 1000);
+      }
+    }
+
+    toggleEl.addEventListener('change', startAutoRefresh);
+    intervalEl.addEventListener('change', startAutoRefresh);
+
+    // Initial load and start
+    loadLog();
+    startAutoRefresh();
+  </script>
+</body>
+
+</html>

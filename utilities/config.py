@@ -4,11 +4,9 @@ from utilities.wpa import generate_wpa_psk
 
 
 def get_config():
-    hostname = (
-        input("Enter hostname [pi02.linuxastra.com]: ").strip() or "pi02.linuxastra.com"
-    )
+    hostname = input("Enter hostname [pi.lxa.com]: ").strip() or "pi.lxa.com"
     username, home_dir, ssh_dir, ssh_pub_key = get_user()
-
+    username = input(f"Enter username [{username}]:  ").strip() or username
     password = getpass.getpass(f"Enter password for user {username}: ")
     password_hash = generate_encrypted_password(password)
 

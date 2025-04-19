@@ -19,7 +19,7 @@ python3 -m http.server "$PORT" --directory "$LOG_DIR" &
 SERVER_PID=$!
 sleep 1
 
-bash "$BASEDIR/vars.sh"
+source "$BASEDIR/vars.sh"
 bash "$BASEDIR/system_setup.sh"
 bash "$BASEDIR/network_setup.sh"
 # bash "$BASEDIR/user_setup.sh" # Managed by first run script

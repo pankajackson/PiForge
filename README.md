@@ -39,14 +39,9 @@ This repository provides an easy-to-use script to **download, flash, and provisi
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/your-username/raspberry-pi-home-automation-flash.git
-cd raspberry-pi-home-automation-flash
-```
-
-2. Make the script executable:
-
-```bash
-chmod +x flasher.py
+git clone https://github.com/pankajackson/pi-provisioner.git
+cd pi-provisioner
+pip install -r requirements.txt
 ```
 
 ---

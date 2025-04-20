@@ -76,18 +76,12 @@ Please select an image architecture:
 3. FULL
 Please select an image type:
 
-Available devices:
-1. /dev/sda
-2. /dev/sdb
-Select a device:
-
-Using cached images/raspios_lite_arm64_latest.img
 
 Enter hostname [pi.linuxastra.in]:
 Using SSH key: id_rsa.pub
 Enter password for user jackson:
-Enter SSID for WIFI [JACKSON_NETWORK]:
-Enter WPA password for JACKSON_NETWORK:
+Enter SSID for WIFI [JACKSON_WIFI]:
+Enter WPA password for JACKSON_WIFI:
 Enter IP addresses for wlan0 [192.168.1.3/24]:
 Enter DNS servers for wlan0 [8.8.8.8]:
 Enter IP addresses for eth0 [192.168.1.2/24]:
@@ -95,6 +89,13 @@ Enter DNS servers for eth0 [8.8.8.8]:
 Enter gateway [192.168.1.1]:
 Enter country code for WIFI [IN]:
 Enter timezone [Asia/Kolkata]:
+
+
+Available devices:
+1. /dev/sda
+2. /dev/sdb
+Select a device:
+
 ```
 
 The script will:

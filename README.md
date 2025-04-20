@@ -1,4 +1,4 @@
-# Raspberry Pi Provisioner
+# PiForge
 
 This repository provides an easy-to-use script to **download, flash, and provision a flash drive** with the latest **Raspberry Pi OS** for setting up a Raspberry Pi 5, specifically for **home automation services**.
 
@@ -39,8 +39,8 @@ This repository provides an easy-to-use script to **download, flash, and provisi
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/pankajackson/pi-provisioner.git
-cd pi-provisioner
+git clone https://github.com/pankajackson/PiForge.git
+cd PiForge
 pip install -r requirements.txt
 ```
 
@@ -129,6 +129,8 @@ watch iostat -h -p sda -d
 ### Step 4: Boot Raspberry Pi and check post-boot actions logs
 
 Open browser and navigate to `http://<your-pi-ip-address>:8182/logview.html`.
+
+[![Post Boot Actions Logs](docs/images/postboot_log.png)](docs/images/postboot_log.png)
 
 ## Supported Devices
 

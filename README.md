@@ -1,36 +1,47 @@
-# Raspberry Pi Provisioner
+# PiForge
 
-This repository provides an easy-to-use script to **download, flash, and provision a flash drive** with the latest **Raspberry Pi OS Lite** for setting up a Raspberry Pi 5, specifically for **home automation services**.
+This repository provides an easy-to-use script to **download, flash, and provision a flash drive** with the latest **Raspberry Pi OS** for setting up a Raspberry Pi 5, specifically for **home automation services**.
 
-### Features
+---
 
-- **Downloads** and **decompresses** the latest Raspberry Pi OS Lite image.
-- **Automatically detects** supported block devices (e.g., SD cards, USB drives, NVMe drives).
-- **Flashes the OS image** to the selected block device (e.g., microSD card or USB drive).
-- **Configures** the Raspberry Pi 5 for home automation tasks.
+## Features
 
-### Requirements
+- Selects **image architecture** (ARM64 or ARM32)
+- Selects **image type** (Lite, Desktop, or Full)
+- **Downloads** and **decompresses** the latest image
+- **Automatically detects** supported block devices
+- **Flashes** the OS image to the selected device
+- **Provisions** the Pi with:
+  - Hostname
+  - SSH public key
+  - User password
+  - WiFi credentials (SSID, password, IP, DNS, gateway)
+  - Ethernet configuration
+  - Country and timezone
+
+---
+
+## Requirements
 
 - A **Raspberry Pi 5** device.
-- A **flash drive** or **microSD card** for the Raspberry Pi.
-- A **Linux-based machine** (e.g., Ubuntu, Arch Linux) to run the script.
-- **wget**, **xz**, **lsblk**, and **dd** utilities installed.
+- A **flash drive** or **microSD card**.
+- A **Linux-based machine** (e.g., Ubuntu, Arch Linux).
+- The following utilities:
+  - `wget`
+  - `xz`
+  - `lsblk`
+  - `dd`
 
 ---
 
 ## Installation
 
-1. Clone the repository to your local machine:
+1. Clone the repository:
 
 ```bash
-git clone https://github.com/your-username/raspberry-pi-home-automation-flash.git
-cd raspberry-pi-home-automation-flash
-```
-
-2. Make the script executable:
-
-```bash
-chmod +x provision_rpi.sh
+git clone https://github.com/pankajackson/PiForge.git
+cd PiForge
+pip install -r requirements.txt
 ```
 
 ---
@@ -39,64 +50,129 @@ chmod +x provision_rpi.sh
 
 ### Step 1: Run the Script
 
-Execute the script to flash the Raspberry Pi OS Lite image to your device.
-
 ```bash
-./provision_rpi.sh
+sudo python flasher.py
 ```
 
-### Step 2: Follow the Interactive Prompts
+_Or with virtualenv:_
 
-- **Step 1:** The script will first check if the required image (`raspios_lite_armhf_latest.img`) is already downloaded.
-- **Step 2:** If not, the script will download and decompress the latest Raspberry Pi OS Lite image for you.
-- **Step 3:** The script will list available storage devices, such as microSD cards, USB flash drives, and NVMe drives, and ask you to select the device to flash.
-- **Step 4:** The script will then **unmount** any existing partitions on the device and **flash** the OS image to the selected device.
-
-> **WARNING:** This process will erase all data on the selected device!
+```bash
+sudo env "PATH=$PATH" "$(which python)" flasher.py
+```
 
 ---
 
+### Step 2: Follow the Prompts
+
+The script will guide you through the following prompts:
+
+```text
+1. ARM64
+2. ARM32
+Please select an image architecture:
+
+1. DESKTOP
+2. LITE
+3. FULL
+Please select an image type:
+
+
+Enter hostname [pi.linuxastra.in]:
+Using SSH key: id_rsa.pub
+Enter password for user jackson:
+Enter SSID for WIFI [JACKSON_WIFI]:
+Enter WPA password for JACKSON_WIFI:
+Enter IP addresses for wlan0 [192.168.1.3/24]:
+Enter DNS servers for wlan0 [8.8.8.8]:
+Enter IP addresses for eth0 [192.168.1.2/24]:
+Enter DNS servers for eth0 [8.8.8.8]:
+Enter gateway [192.168.1.1]:
+Enter country code for WIFI [IN]:
+Enter timezone [Asia/Kolkata]:
+
+
+Available devices:
+1. /dev/sda
+2. /dev/sdb
+Select a device:
+
+```
+
+The script will:
+
+- Unmount any mounted partitions on the selected device
+- Flash and provision the image
+- Mount and configure the `boot` and `root` partitions
+- Configure provisioning scripts
+- Safely unmount all partitions when done
+
+Sample output:
+
+```text
+✅ First boot actions complete!
+✅ Post boot Provisioning complete!
+✅ Raspberry Pi is ready. Insert the SD card and boot up!
+```
+
+> **⚠️ WARNING:** All data on the selected device will be erased.
+
+---
+
+### Step 3: Monitor Flash Progress (Optional)
+
+```bash
+watch iostat -h -p sda -d
+```
+
+> Replace `sda` with your selected device name.
+
+### Step 4: Boot Raspberry Pi and check post-boot actions logs
+
+Open browser and navigate to `http://<your-pi-ip-address>:8182/logview.html`.
+
+[![Post Boot Actions Logs](docs/images/postboot_log.png)](docs/images/postboot_log.png)
+
 ## Supported Devices
 
-The script automatically detects removable storage devices connected to your machine. These include:
+The script detects and lists only **removable storage devices**, including:
 
-- **SD cards** (e.g., `/dev/mmcblkX`).
-- **USB flash drives** (e.g., `/dev/sdX`).
-- **NVMe drives** (e.g., `/dev/nvmeXnY`).
+- `/dev/mmcblkX` (microSD)
+- `/dev/sdX` (USB flash)
+- `/dev/nvmeXnY` (NVMe)
 
-Make sure that the device you select is a removable block device and that it is not your system disk.
+Make sure not to select your system disk!
 
 ---
 
 ## Troubleshooting
 
-- **No supported devices found:**  
-  Ensure that your flash drive or microSD card is properly connected to your machine. The script lists only removable storage devices, so make sure you aren't trying to select your system disk.
+**Q: No supported devices found?**  
+Ensure your flash drive is connected and not mounted. Use `lsblk` to check.
 
-- **Script not working on your OS:**  
-  The script is designed for **Linux-based systems**. Make sure you have the necessary utilities installed:
-- `wget`
-- `xz`
-- `lsblk`
-- `dd`
+**Q: Script not working?**  
+Verify these dependencies are installed:
 
-If any of these commands are missing, the script will not function properly. You can install them using your system's package manager.
+```bash
+sudo pacman -S wget xz coreutils util-linux  # Arch
+sudo apt install wget xz-utils coreutils     # Debian/Ubuntu
+```
 
 ---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
 
 ---
 
-### Contributors
+## Contributors
 
-- **Your Name** – _Author and Maintainer_
-- **Contributions welcome!** Feel free to fork the repository and submit pull requests.
+- **Pankaj Jackson** – _Author and Maintainer_
+- Contributions welcome! Fork and PR any improvements.
 
 ---
 
-### Contact
+## Contact
 
-For any questions or issues, please open an issue on this repository.
+Found an issue or want to suggest a feature?  
+Please open an issue in this repository.

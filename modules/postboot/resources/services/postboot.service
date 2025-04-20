@@ -1,9 +1,11 @@
 [Unit]
 Description=Post Boot Setup Script
-After=multi-user.target
+# After=multi-user.target
+After=network.target
 
 [Service]
-ExecStart=/bin/bash /post-boot.sh
+ExecStart=/bin/bash /post-boot/setup.sh
+Type=oneshot
 Restart=on-failure
 RemainAfterExit=true
 

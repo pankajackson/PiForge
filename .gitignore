@@ -171,6 +171,5 @@ cython_debug/
 .pypirc
 
 # Custom
-images/
 dev/
 .st*
